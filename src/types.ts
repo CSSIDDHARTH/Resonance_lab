@@ -14,12 +14,24 @@ export interface DailyHabit {
   completed: boolean;
 }
 
+export interface RepertoireSong {
+  id: string;
+  title: string;
+  artist: string;
+  learnedDate: string;
+  lastReviewedDate: string;
+  difficulty: 1 | 2 | 3 | 4 | 5; // 1: Easy, 5: Virtuoso
+  retentionScore: number; // 0 - 100
+}
+
 export interface UserProgress {
   xp: number;
   level: number;
   streak: number;
   lastPracticeDate?: string;
+  hasCompletedTour?: boolean;
   badges: string[]; // ids of earned badges
+  repertoire: RepertoireSong[];
 }
 
 export interface PracticeBlock {

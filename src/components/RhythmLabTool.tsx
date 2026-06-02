@@ -15,6 +15,7 @@ import {
   Minus
 } from 'lucide-react';
 import { getAudioContext, triggerClickAtTime } from '../lib/audio';
+import PitchTuner from './PitchTuner';
 
 interface RhythmLabToolProps {
   onEarnBadge: (badgeId: string) => void;
@@ -22,7 +23,7 @@ interface RhythmLabToolProps {
 }
 
 export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolProps) {
-  const [activeTab, setActiveTab] = useState<'accuracy' | 'internal' | 'polyrhythm'>('accuracy');
+  const [activeTab, setActiveTab] = useState<'accuracy' | 'internal' | 'polyrhythm' | 'tuner'>('accuracy');
 
   // Audio Driver references
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -335,21 +336,22 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
       className="p-6 md:p-8 space-y-8 select-none"
     >
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-400 animate-pulse" />
-            <h1 className="font-display font-semibold text-2xl text-white tracking-tight">Rhythm Lab Station</h1>
+            <Activity className="w-5 h-5 text-blue-600 animate-pulse" />
+            <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">Rhythm Lab Station</h1>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">Physical groove diagnostic chambers assessing timing deviations and polyrhythms.</p>
+          <p className="text-xs text-slate-500 mt-0.5 font-medium">Physical groove diagnostic chambers assessing timing deviations and polyrhythms.</p>
         </div>
 
         {/* Tab Selection Row */}
-        <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-800">
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
           {[
             { id: 'accuracy', name: 'Accuracy Test' },
             { id: 'internal', name: 'Internal Clock' },
-            { id: 'polyrhythm', name: 'Polyrhythm Trainer' }
+            { id: 'polyrhythm', name: 'Polyrhythm Trainer' },
+            { id: 'tuner', name: 'Chromatic Tuner' }
           ].map((t) => (
             <button
               key={t.id}
@@ -360,10 +362,10 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                 if (isPolyPlaying) handleStartPolyrhythm();
                 if (challState !== 'idle') setChallState('idle');
               }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-sans cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all ${
                 activeTab === t.id
-                  ? 'bg-indigo-600 text-white shadow shadow-indigo-600/20'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               {t.name}
@@ -374,6 +376,19 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
 
       <AnimatePresence mode="wait">
         
+        {/* TAB: PITCH TUNER */}
+        {activeTab === 'tuner' && (
+          <motion.div
+            key="tuner"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="max-w-md mx-auto"
+          >
+            <PitchTuner />
+          </motion.div>
+        )}
+
         {/* TAB 1: ACCURACY TEST */}
         {activeTab === 'accuracy' && (
           <motion.div
@@ -384,16 +399,16 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
             className="grid lg:grid-cols-12 gap-8"
           >
             {/* Play controls left */}
-            <div className="lg:col-span-4 glass-panel p-6 rounded-2xl border-slate-800 space-y-6">
-              <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide">ACCURACY TEST MODULE</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+            <div className="lg:col-span-4 glass-panel p-6 rounded-2xl border-slate-200 space-y-6 shadow-sm">
+              <h3 className="font-display font-bold text-slate-800 text-sm tracking-wide uppercase">ACCURACY TEST MODULE</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
                 Connect with the underlying pulse. Click the spacebar or tap the pad on the screen exactly on the metronome click. We will score your timing down to the millisecond!
               </p>
 
               <div>
-                <label className="text-[10px] text-slate-400 font-mono tracking-wider block">TARGET FREQUENCY (BPM)</label>
+                <label className="text-[10px] text-slate-400 font-bold font-mono tracking-wider block">TARGET FREQUENCY (BPM)</label>
                 <div className="flex gap-4 items-center mt-2 justify-between">
-                  <span className="text-xl font-mono font-bold text-indigo-400">{accBpm} BPM</span>
+                  <span className="text-xl font-mono font-bold text-blue-600">{accBpm} BPM</span>
                   <input
                     type="range"
                     min="50"
@@ -401,7 +416,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                     value={accBpm}
                     onChange={(e) => setAccBpm(Number(e.target.value))}
                     disabled={isAccPlaying}
-                    className="w-1/2 accent-indigo-500 cursor-pointer"
+                    className="w-1/2 accent-blue-600 cursor-pointer bg-slate-100 h-1 rounded-full"
                   />
                 </div>
               </div>
@@ -410,23 +425,23 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
               <button
                 onClick={registerAccuracyTap}
                 disabled={!isAccPlaying}
-                className="w-full h-24 bg-gradient-to-br from-indigo-950/40 to-slate-900/80 active:from-indigo-900/30 active:scale-98 transition-all hover:border-indigo-500/25 border border-slate-800 rounded-xl flex flex-col justify-center items-center text-slate-400 text-xs font-mono select-none cursor-pointer disabled:opacity-40"
+                className="w-full h-24 bg-white active:bg-slate-50 active:scale-98 transition-all hover:border-blue-400 border border-slate-200 rounded-2xl flex flex-col justify-center items-center text-slate-400 text-xs font-mono select-none cursor-pointer disabled:opacity-40 shadow-sm"
               >
-                <span className="font-bold text-indigo-400 text-sm">TAP GRID ZONE</span>
-                <span className="text-[10px] mt-1 text-slate-500 font-sans">Click here or hit [SPACE]</span>
+                <span className="font-bold text-blue-600 text-sm">TAP GRID ZONE</span>
+                <span className="text-[10px] mt-1 text-slate-400 font-sans font-bold">Click here or hit [SPACE]</span>
               </button>
 
               <button
                 onClick={handleToggleAccuracyTest}
-                className={`w-full py-3 rounded-lg font-sans text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer ${
+                className={`w-full py-3 rounded-xl font-sans text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all ${
                   isAccPlaying
-                    ? 'bg-slate-800 text-red-400 hover:bg-slate-755'
-                    : 'bg-indigo-600 hover:bg-indigo-550 text-white'
+                    ? 'bg-slate-100 text-red-600 hover:bg-slate-200 border border-slate-200'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                 }`}
               >
                 {isAccPlaying ? (
                   <>
-                    <Square className="w-3.5 h-3.5 fill-red-400 text-red-500" /> End Diagnostic Taps
+                    <Square className="w-3.5 h-3.5 fill-red-600 text-red-600" /> End Diagnostic Taps
                   </>
                 ) : (
                   <>
@@ -440,18 +455,18 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
             <div className="lg:col-span-8 flex flex-col justify-between space-y-6">
               
               {/* Timing scatter display line */}
-              <div className="glass-panel p-6 rounded-2xl border-slate-800 h-64 flex flex-col justify-between">
+              <div className="glass-panel p-6 rounded-2xl border-slate-200 h-64 flex flex-col justify-between shadow-sm">
                 <div>
-                  <h3 className="text-xs font-display font-medium text-slate-300">REAL-TIME BEAT SCATTER LINE</h3>
-                  <p className="text-[10px] text-slate-500">Node placements show timing offsets relative to actual tick meridian.</p>
+                  <h3 className="text-xs font-display font-bold text-slate-800">REAL-TIME BEAT SCATTER LINE</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Node placements show timing offsets relative to actual tick meridian.</p>
                 </div>
 
                 {/* Grid scatter board */}
-                <div className="relative h-20 w-full bg-slate-950/50 rounded-xl border border-slate-900 flex items-center justify-center overflow-hidden">
+                <div className="relative h-20 w-full bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden shadow-inner">
                   {/* Meridian centered mark */}
-                  <div className="absolute top-0 bottom-0 w-0.5 bg-indigo-500/80 z-10" />
-                  <span className="absolute left-2.5 text-[9px] font-mono text-slate-500">EARLY (-150ms)</span>
-                  <span className="absolute right-2.5 text-[9px] font-mono text-slate-500">LATE (+150ms)</span>
+                  <div className="absolute top-0 bottom-0 w-0.5 bg-blue-500/30 z-10" />
+                  <span className="absolute left-4 text-[9px] font-bold font-mono text-slate-400 uppercase tracking-widest">EARLY</span>
+                  <span className="absolute right-4 text-[9px] font-bold font-mono text-slate-400 uppercase tracking-widest">LATE</span>
 
                   {/* Placing dots for last 15 taps */}
                   {userTaps.slice(-15).map((tap, idx) => {
@@ -462,11 +477,11 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                         key={idx}
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className={`absolute w-3.5 h-3.5 rounded-full z-20 ${
+                        className={`absolute w-3.5 h-3.5 rounded-full z-20 shadow-sm ${
                           Math.abs(tap.offsetMs) < 25
-                            ? 'bg-emerald-500 shadow shadow-emerald-500/60'
+                            ? 'bg-emerald-500 shadow shadow-emerald-500/40'
                             : Math.abs(tap.offsetMs) < 70
-                            ? 'bg-indigo-400'
+                            ? 'bg-blue-400'
                             : 'bg-red-400'
                         }`}
                         style={{ left: `${percentage}%` }}
@@ -475,7 +490,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                   })}
                 </div>
 
-                <div className="flex justify-between font-mono text-[9px] text-slate-500 px-1">
+                <div className="flex justify-between font-mono text-[9px] text-slate-400 px-1 font-bold">
                   <span>Elite Zone: &lt; 25ms offset</span>
                   <span>Registered: {userTaps.length} clicks</span>
                 </div>
@@ -483,23 +498,23 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
 
               {/* Performance Cards */}
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="glass-panel p-5 rounded-xl border-slate-800 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-mono font-bold text-lg">
+                <div className="glass-panel p-5 rounded-2xl border-slate-200 flex items-center gap-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-mono font-bold text-lg shadow-inner">
                     {accScore !== null ? `${accScore}%` : '--'}
                   </div>
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-200">ACCURACY RATING</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">Average alignment with structural meridian ticks.</p>
+                    <h4 className="text-xs font-bold text-slate-800">ACCURACY RATING</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 font-medium">Average alignment with structural meridian ticks.</p>
                   </div>
                 </div>
 
-                <div className="glass-panel p-5 rounded-xl border-slate-800 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-mono font-bold text-lg">
+                <div className="glass-panel p-5 rounded-2xl border-slate-200 flex items-center gap-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-mono font-bold text-lg shadow-inner">
                     {consistencyScore !== null ? `${consistencyScore}%` : '--'}
                   </div>
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-200">CONSISTENCY (STABILITY)</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">Reflects pacing consistency (lower standard jitter variance).</p>
+                    <h4 className="text-xs font-bold text-slate-800">STABILITY (JITTER)</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 font-medium">Reflects pacing consistency (lower standard jitter variance).</p>
                   </div>
                 </div>
               </div>
@@ -515,39 +530,39 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
-            className="max-w-2xl mx-auto glass-panel p-8 rounded-2xl border-slate-800 space-y-8"
+            className="max-w-2xl mx-auto glass-panel p-8 rounded-3xl border-slate-200 space-y-8 shadow-sm"
           >
             <div className="text-center space-y-2">
-              <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide">INTERNAL SILENCE DRIFT</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+              <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide uppercase">INTERNAL SILENCE DRIFT</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
                 We trigger metronome ticks for 8 beats, then the audio goes dead quiet. Keep tapping coordinates on the spacebar exactly where the beats are meant to land.
               </p>
             </div>
 
             {/* Display challenge indicators */}
-            <div className="h-32 bg-slate-950/60 rounded-xl border border-slate-900 flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="h-32 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
               {challState === 'idle' && (
-                <span className="text-xs text-slate-500 font-mono">READY TO ENGAGE ENGINE</span>
+                <span className="text-xs text-slate-400 font-bold font-mono">READY TO ENGAGE ENGINE</span>
               )}
 
               {challState === 'audible' && (
                 <div className="text-center space-y-2">
-                  <span className="text-xs text-purple-400 font-mono animate-pulse uppercase">AUDIBLE GUIDE PULSE ACTIVED...</span>
-                  <p className="text-[10px] text-slate-500">Listen and trace the grid pace.</p>
+                  <span className="text-xs text-blue-600 font-bold font-mono animate-pulse uppercase tracking-wider">AUDIBLE GUIDE PULSE ACTIVED...</span>
+                  <p className="text-[10px] text-slate-400 font-medium">Listen and trace the grid pace.</p>
                 </div>
               )}
 
               {challState === 'silent' && (
                 <div className="text-center space-y-2">
-                  <span className="text-xs text-red-400 font-mono animate-pulse uppercase font-semibold">SILENT CHALLENGE MODE ACTIVE!</span>
-                  <p className="text-[10px] text-slate-300 font-mono px-3.5 py-1 bg-red-950/30 rounded inline-block mt-1">TAP NOW: {challTaps.length} Registered</p>
+                  <span className="text-xs text-red-500 font-bold font-mono animate-pulse uppercase font-bold tracking-wider">SILENT CHALLENGE MODE ACTIVE!</span>
+                  <p className="text-[10px] text-white font-bold font-mono px-3.5 py-1 bg-red-500 rounded-full inline-block mt-1">TAP NOW: {challTaps.length} Registered</p>
                 </div>
               )}
 
               {challState === 'finished' && (
                 <div className="text-center space-y-1">
-                  <span className="text-xs text-emerald-400 font-mono font-semibold uppercase">ANALYZING PULSES COMPLETE</span>
-                  <p className="text-[10px] text-slate-500">Drafting feedback analytics below...</p>
+                  <span className="text-xs text-emerald-600 font-bold font-mono uppercase">ANALYZING PULSES COMPLETE</span>
+                  <p className="text-[10px] text-slate-400 font-medium">Drafting feedback analytics below...</p>
                 </div>
               )}
             </div>
@@ -556,7 +571,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
               <button
                 onClick={handleStartInternalChallenge}
                 disabled={challState === 'audible' || challState === 'silent'}
-                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-550 text-white rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-40"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-40 transition-all shadow-sm shadow-blue-500/10"
               >
                 Launch Challenge Loop
               </button>
@@ -564,7 +579,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
               <button
                 onClick={registerChallengeTap}
                 disabled={challState !== 'silent'}
-                className="w-24 py-3 bg-slate-900 hover:bg-slate-850 text-indigo-400 rounded-lg text-xs font-mono font-bold border border-slate-800 cursor-pointer disabled:opacity-40"
+                className="w-24 py-3 bg-white hover:bg-slate-50 text-blue-600 rounded-xl text-xs font-bold font-mono border border-slate-200 cursor-pointer disabled:opacity-40 shadow-sm"
               >
                 TAP UNIT
               </button>
@@ -575,19 +590,19 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-slate-900/40 p-5 rounded-lg border border-slate-850 space-y-3"
+                className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 space-y-3"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">AVERAGE DRIFT:</span>
-                  <span className="font-mono font-bold text-indigo-400 text-sm">{driftMs} ms</span>
+                  <span className="text-[10px] text-blue-700 font-bold uppercase tracking-wider">AVERAGE DRIFT:</span>
+                  <span className="font-mono font-bold text-blue-600 text-sm">{driftMs} ms</span>
                 </div>
-                <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-indigo-500" 
+                    className="h-full bg-blue-600 rounded-full transition-all duration-1000" 
                     style={{ width: `${Math.min(100, Math.max(10, 100 - (driftMs * 0.4)))}%` }} 
                   />
                 </div>
-                <p className="text-xs font-medium text-slate-200 mt-1">{getDriftVerdict(driftMs)}</p>
+                <p className="text-xs font-bold text-slate-800 mt-1">{getDriftVerdict(driftMs)}</p>
               </motion.div>
             )}
 
@@ -604,56 +619,56 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
             className="grid lg:grid-cols-12 gap-8 items-center"
           >
             {/* Control panel */}
-            <div className="lg:col-span-5 glass-panel p-6 rounded-2xl border-slate-800 space-y-6">
-              <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide">COAXIAL POLYRHYTHMS</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+            <div className="lg:col-span-5 glass-panel p-6 rounded-2xl border-slate-200 space-y-6 shadow-sm">
+              <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide uppercase">COAXIAL POLYRHYTHMS</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
                 A polyrhythm refers to two distinct accent divisions overlaying harmoniously. Align standard grids or customized ratios to hear cross-beats directly.
               </p>
 
               {/* Subdivision inputs */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Left Rhythm (High Bell):</span>
+                  <span className="text-xs text-slate-600 font-bold">Left Rhythm (High Bell):</span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setLeftPol(prev => Math.max(1, prev - 1))}
-                      className="w-6.5 h-6.5 rounded bg-slate-900 text-slate-400 flex items-center justify-center cursor-pointer border border-slate-850 hover:bg-slate-850"
+                      className="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer border border-slate-200 hover:bg-slate-200 transition-colors"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="font-mono font-bold text-purple-400 text-sm w-4 text-center">{leftPol}</span>
+                    <span className="font-mono font-bold text-blue-600 text-sm w-4 text-center">{leftPol}</span>
                     <button
                       onClick={() => setLeftPol(prev => Math.min(8, prev + 1))}
-                      className="w-6.5 h-6.5 rounded bg-slate-900 text-slate-400 flex items-center justify-center cursor-pointer border border-slate-850 hover:bg-slate-850"
+                      className="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer border border-slate-200 hover:bg-slate-200 transition-colors"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Right Rhythm (Low Click):</span>
+                  <span className="text-xs text-slate-600 font-bold">Right Rhythm (Low Click):</span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setRightPol(prev => Math.max(1, prev - 1))}
-                      className="w-6.5 h-6.5 rounded bg-slate-900 text-slate-400 flex items-center justify-center cursor-pointer border border-slate-850 hover:bg-slate-850"
+                      className="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer border border-slate-200 hover:bg-slate-200 transition-colors"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="font-mono font-bold text-indigo-400 text-sm w-4 text-center">{rightPol}</span>
+                    <span className="font-mono font-bold text-indigo-600 text-sm w-4 text-center">{rightPol}</span>
                     <button
                       onClick={() => setRightPol(prev => Math.min(8, prev + 1))}
-                      className="w-6.5 h-6.5 rounded bg-slate-900 text-slate-400 flex items-center justify-center cursor-pointer border border-slate-850 hover:bg-slate-850"
+                      className="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer border border-slate-200 hover:bg-slate-200 transition-colors"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-slate-500 font-mono tracking-wide">CYCLE SPEED (BPM)</label>
+                  <label className="text-[10px] text-slate-400 font-bold font-mono tracking-wide">CYCLE SPEED (BPM)</label>
                   <div className="flex items-center justify-between gap-4 mt-1">
-                    <span className="text-xs font-mono font-semibold text-slate-300">{polyBpm} BPM</span>
+                    <span className="text-xs font-mono font-bold text-slate-700">{polyBpm} BPM</span>
                     <input
                       type="range"
                       min="40"
@@ -661,7 +676,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                       value={polyBpm}
                       onChange={(e) => setPolyBpm(Number(e.target.value))}
                       disabled={isPolyPlaying}
-                      className="w-1/2 accent-indigo-500 cursor-pointer"
+                      className="w-1/2 accent-blue-600 cursor-pointer bg-slate-100 h-1 rounded-full"
                     />
                   </div>
                 </div>
@@ -669,15 +684,15 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
 
               <button
                 onClick={handleStartPolyrhythm}
-                className={`w-full py-3 rounded-lg font-sans text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer ${
+                className={`w-full py-3 rounded-xl font-sans text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all ${
                   isPolyPlaying
-                    ? 'bg-slate-800 text-red-400 hover:bg-slate-755'
-                    : 'bg-indigo-600 hover:bg-indigo-550 text-white'
+                    ? 'bg-slate-100 text-red-600 hover:bg-slate-200 border border-slate-200'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                 }`}
               >
                 {isPolyPlaying ? (
                   <>
-                    <Square className="w-3.5 h-3.5 fill-red-400 text-red-500" /> Stop Polyrhythm
+                    <Square className="w-3.5 h-3.5 fill-red-600 text-red-600" /> Stop Polyrhythm
                   </>
                 ) : (
                   <>
@@ -689,7 +704,7 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
 
             {/* Circular representation right */}
             <div className="lg:col-span-7 flex flex-col justify-center items-center p-6 h-full min-h-[300px]">
-              <div className="relative w-64 h-64 md:w-72 md:h-72">
+              <div className="relative w-64 h-64 md:w-80 md:h-80 bg-white rounded-full p-4 shadow-xl border border-slate-100">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
                   {/* Coaxial track Outer (Left pol) */}
                   <circle
@@ -697,8 +712,8 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                     cy="100"
                     r="80"
                     fill="none"
-                    stroke="#1e293b"
-                    strokeWidth="4"
+                    stroke="#F1F5F9"
+                    strokeWidth="8"
                   />
                   {/* Coaxial track Inner (Right pol) */}
                   <circle
@@ -706,20 +721,20 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                     cy="100"
                     r="55"
                     fill="none"
-                    stroke="#1e293b"
-                    strokeWidth="4"
+                    stroke="#F1F5F9"
+                    strokeWidth="8"
                   />
 
                   {/* Top Meridian checkpoint marker */}
                   <line
-                    x1="100" y1="10"
-                    x2="100" y2="30"
-                    stroke="#a855f7"
-                    strokeWidth="2"
-                    strokeOpacity="0.7"
+                    x1="100" y1="5"
+                    x2="100" y2="25"
+                    stroke="#94A3B8"
+                    strokeWidth="3"
+                    strokeLinecap="round"
                   />
 
-                  {/* Left indicator nodes (Purple) */}
+                  {/* Left indicator nodes (Blue) */}
                   {Array.from({ length: leftPol }).map((_, id) => {
                     const angle = (360 / leftPol) * id;
                     const r = 80;
@@ -730,14 +745,14 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                         key={`l-${id}`}
                         cx={x}
                         cy={y}
-                        r="5"
-                        fill="#a855f7"
-                        filter="drop-shadow(0 0 4px rgba(168,85,247,0.5))"
+                        r="6"
+                        fill="#3B82F6"
+                        className="shadow-sm"
                       />
                     );
                   })}
 
-                  {/* Right indicator nodes (Blue) */}
+                  {/* Right indicator nodes (Indigo) */}
                   {Array.from({ length: rightPol }).map((_, id) => {
                     const angle = (360 / rightPol) * id;
                     const r = 55;
@@ -748,9 +763,9 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                         key={`r-${id}`}
                         cx={x}
                         cy={y}
-                        r="5"
-                        fill="#3b82f6"
-                        filter="drop-shadow(0 0 4px rgba(59,130,246,0.5))"
+                        r="6"
+                        fill="#6366F1"
+                        className="shadow-sm"
                       />
                     );
                   })}
@@ -762,8 +777,9 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                       y1="100"
                       x2={100 + 80 * Math.cos((leftRot * Math.PI) / 180)}
                       y2={100 + 80 * Math.sin((leftRot * Math.PI) / 180)}
-                      stroke="#a855f7"
-                      strokeWidth="1.5"
+                      stroke="#3B82F6"
+                      strokeWidth="3"
+                      strokeLinecap="round"
                     />
                   )}
 
@@ -774,8 +790,9 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
                       y1="100"
                       x2={100 + 55 * Math.cos((rightRot * Math.PI) / 180)}
                       y2={100 + 55 * Math.sin((rightRot * Math.PI) / 180)}
-                      stroke="#3b82f6"
-                      strokeWidth="1.5"
+                      stroke="#6366F1"
+                      strokeWidth="3"
+                      strokeLinecap="round"
                     />
                   )}
 
@@ -783,8 +800,8 @@ export default function RhythmLabTool({ onEarnBadge, onGainXp }: RhythmLabToolPr
 
                 {/* Concentric overlay center text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-mono font-bold text-white leading-none">{leftPol}:{rightPol}</span>
-                  <span className="text-[10px] text-slate-500 uppercase font-mono mt-1 tracking-wider">RATIO</span>
+                  <span className="text-3xl font-mono font-bold text-slate-900 leading-none">{leftPol}:{rightPol}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase font-mono mt-1 tracking-widest">POLY RATIO</span>
                 </div>
               </div>
             </div>

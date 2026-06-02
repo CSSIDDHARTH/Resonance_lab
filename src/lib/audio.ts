@@ -413,3 +413,118 @@ export function triggerClickAtTime(
     console.warn('Click visual trigger failed:', err);
   }
 }
+
+// Complex Drum Groove Scheduler
+export function triggerGrooveAtTime(
+  ctx: AudioContext,
+  time: number,
+  bpm: number,
+  beatIndex: number,
+  grooveType: 'basic-rock' | 'funk' | 'jazz',
+  volume: number = 1
+) {
+  const secondsPerBeat = 60 / bpm;
+  const eighth = secondsPerBeat / 2;
+
+  if (grooveType === 'basic-rock') {
+    // 1: Kick, 2: Snare, 3: Kick, 4: Snare | All have 8th note hihats
+    // Hi-hats
+    triggerClickAtTime(ctx, time, 1000, 'hihat', volume * 0.4);
+    triggerClickAtTime(ctx, time + eighth, 1000, 'hihat', volume * 0.25);
+
+    if (beatIndex === 0 || beatIndex === 2) {
+      triggerClickAtTime(ctx, time, 100, 'drum', volume * 0.8);
+    } else if (beatIndex === 1 || beatIndex === 3) {
+      triggerClickAtTime(ctx, time, 1000, 'rimshot', volume * 0.7);
+    }
+  } 
+  else if (grooveType === 'funk') {
+    // Syncopated funk feel
+    triggerClickAtTime(ctx, time, 1000, 'hihat', volume * 0.5);
+    
+    if (beatIndex === 0) {
+      triggerClickAtTime(ctx, time, 100, 'drum', volume * 0.9);
+      triggerClickAtTime(ctx, time + eighth * 0.5, 100, 'drum', volume * 0.4);
+    } else if (beatIndex === 1) {
+      triggerClickAtTime(ctx, time, 1000, 'rimshot', volume * 0.8);
+    } else if (beatIndex === 2) {
+      triggerClickAtTime(ctx, time + eighth, 100, 'drum', volume * 0.6);
+    } else if (beatIndex === 3) {
+      triggerClickAtTime(ctx, time, 1000, 'rimshot', volume * 0.8);
+      triggerClickAtTime(ctx, time + eighth * 1.5, 1000, 'hihat', volume * 0.3);
+    }
+  }
+  else if (grooveType === 'jazz') {
+    // Swing / Jazz ride pattern: 1, 2-and, 3, 4-and
+    triggerClickAtTime(ctx, time, 1000, 'bell', volume * 0.3); // Ride cymbal proxy
+    
+    const swingOffset = eighth * 1.33; // Triplet-feel offset
+    
+    if (beatIndex === 1 || beatIndex === 3) {
+      triggerClickAtTime(ctx, time + swingOffset, 1000, 'hihat', volume * 0.4);
+      triggerClickAtTime(ctx, time, 1000, 'hihat', volume * 0.6); // Foot hi-hat on 2 and 4
+    }
+    
+    if (beatIndex === 0) {
+      triggerClickAtTime(ctx, time, 100, 'drum', volume * 0.4); // Feathered kick
+    }
+  }
+}
+
+// Frequency to Note name converter
+export function freqToNote(frequency: number): { note: string; octave: number; cents: number } {
+  const noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+  const roundedNoteNum = Math.round(noteNum) + 69;
+  const note = NOTE_NAMES[roundedNoteNum % 12];
+  const octave = Math.floor(roundedNoteNum / 12) - 1;
+  const cents = Math.round(100 * (noteNum - Math.round(noteNum)));
+  return { note, octave, cents };
+}
+
+// Basic Autocorrelation Pitch Detection
+export function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
+  const SIZE = buffer.length;
+  let rms = 0;
+
+  for (let i = 0; i < SIZE; i++) {
+    rms += buffer[i] * buffer[i];
+  }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.01) return -1; // Not enough signal
+
+  let r1 = 0, r2 = SIZE - 1, threshold = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) {
+    if (Math.abs(buffer[i]) < threshold) { r1 = i; break; }
+  }
+  for (let i = 1; i < SIZE / 2; i++) {
+    if (Math.abs(buffer[SIZE - i]) < threshold) { r2 = SIZE - i; break; }
+  }
+
+  const buf = buffer.slice(r1, r2);
+  const size = buf.length;
+
+  const c = new Array(size).fill(0);
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size - i; j++) {
+      c[i] = c[i] + buf[j] * buf[j + i];
+    }
+  }
+
+  let d = 0;
+  while (c[d] > c[d + 1]) d++;
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < size; i++) {
+    if (c[i] > maxval) {
+      maxval = c[i];
+      maxpos = i;
+    }
+  }
+  let T0 = maxpos;
+
+  const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+  const a = (x1 + x3 - 2 * x2) / 2;
+  const b = (x3 - x1) / 2;
+  if (a) T0 = T0 - b / (2 * a);
+
+  return sampleRate / T0;
+}

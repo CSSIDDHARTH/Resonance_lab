@@ -7,6 +7,7 @@ import {
   Trash2,
   Play,
   Pause,
+  Square,
   RotateCcw,
   BookOpen,
   TrendingUp,
@@ -16,16 +17,23 @@ import {
   Sparkles
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { PracticeBlock, PracticeJournalEntry } from '../types';
+import { PracticeBlock, PracticeJournalEntry, UserProgress, RepertoireSong } from '../types';
 import { getAudioContext, triggerClickAtTime } from '../lib/audio';
 
 interface PracticeHubToolProps {
   onGainXp: (xp: number) => void;
   onLogCompletedBlock: (minutes: number) => void;
+  userProgress: UserProgress;
+  onUpdateRepertoire: (repertoire: RepertoireSong[]) => void;
 }
 
-export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: PracticeHubToolProps) {
-  const [activeDashboardSection, setActiveDashboardSection] = useState<'timer' | 'trainer' | 'journal' | 'analytics'>('timer');
+export default function PracticeHubTool({ 
+  onGainXp, 
+  onLogCompletedBlock, 
+  userProgress,
+  onUpdateRepertoire
+}: PracticeHubToolProps) {
+  const [activeDashboardSection, setActiveDashboardSection] = useState<'timer' | 'trainer' | 'journal' | 'repertoire' | 'analytics'>('timer');
 
   // ==========================================
   // MODULE 1: PRACTICE TIMER & BLOCKS STATE
@@ -222,6 +230,35 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
   const [observations, setObservations] = useState('');
   const [jotCategory, setJotCategory] = useState<'scales' | 'songs' | 'exercises' | 'technique'>('scales');
 
+  // ==========================================
+  // MODULE 4: AI COACHING INSIGHTS
+  // ==========================================
+  const [aiInsights, setAiInsights] = useState<string[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const handleGetAiInsights = async () => {
+    if (journal.length === 0) {
+      alert('Log some practice sessions first to get AI insights!');
+      return;
+    }
+    
+    setIsAiLoading(true);
+    try {
+      const response = await fetch('/api/analyze-practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journalEntries: journal.slice(0, 5) }) // Send last 5 entries
+      });
+      const data = await response.json();
+      setAiInsights(data);
+    } catch (err) {
+      console.error('AI Insight Error:', err);
+      alert('Failed to connect to AI Coach. Make sure the server is running with a valid API key.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   useEffect(() => {
     const raw = localStorage.getItem('resonance_journal');
     if (raw) {
@@ -295,13 +332,51 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
     { day: 'Sun', minutes: 40, maxBpm: 142 },
   ];
 
-  useEffect(() => {
-    return () => {
-      if (timerIdRef.current) clearInterval(timerIdRef.current);
-      if (intervalIdRef.current) clearInterval(intervalIdRef.current);
-      if (secondsCountIdRef.current) clearInterval(secondsCountIdRef.current);
+  // ==========================================
+  // MODULE: REPERTOIRE GUARD (Predictive Maintenance)
+  // ==========================================
+  const [newSongTitle, setNewSongTitle] = useState('');
+  const [newSongArtist, setNewSongArtist] = useState('');
+
+  const handleAddSong = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSongTitle.trim()) return;
+
+    const fresh: RepertoireSong = {
+      id: Math.random().toString(),
+      title: newSongTitle,
+      artist: newSongArtist || 'Unknown Artist',
+      learnedDate: new Date().toISOString().split('T')[0],
+      lastReviewedDate: new Date().toISOString().split('T')[0],
+      difficulty: 2,
+      retentionScore: 100
     };
-  }, []);
+
+    onUpdateRepertoire([fresh, ...userProgress.repertoire]);
+    setNewSongTitle('');
+    setNewSongArtist('');
+  };
+
+  const handleReviewSong = (id: string) => {
+    const updated = userProgress.repertoire.map(s => {
+      if (s.id === id) {
+        return { 
+          ...s, 
+          lastReviewedDate: new Date().toISOString().split('T')[0],
+          retentionScore: 100 
+        };
+      }
+      return s;
+    });
+    onUpdateRepertoire(updated);
+    onGainXp(50);
+  };
+
+  const getRetentionColor = (score: number) => {
+    if (score > 80) return 'text-emerald-400';
+    if (score > 50) return 'text-amber-400';
+    return 'text-red-400';
+  };
 
   return (
     <motion.div
@@ -311,21 +386,22 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
       className="p-6 md:p-8 space-y-8 select-none"
     >
       {/* Station Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-400" />
-            <h1 className="font-display font-semibold text-2xl text-white tracking-tight">Practice Hub Workstation</h1>
+            <Calendar className="w-5 h-5 text-blue-600" />
+            <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">Practice Hub Workstation</h1>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">Manage custom block schedules, track speed tempo gains, and write session journals.</p>
+          <p className="text-xs text-slate-500 mt-0.5 font-medium">Manage custom block schedules, track speed tempo gains, and write session journals.</p>
         </div>
 
         {/* Action picker */}
-        <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-800">
+        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
           {[
             { id: 'timer', label: 'Workout Timer' },
             { id: 'trainer', label: 'Tempo Trainer' },
             { id: 'journal', label: 'Practice Journal' },
+            { id: 'repertoire', label: 'Repertoire Guard' },
             { id: 'analytics', label: 'Analytics Insights' }
           ].map((sec) => (
             <button
@@ -334,10 +410,10 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
                 setActiveDashboardSection(sec.id as any);
                 if (isTrainerPlaying) handleToggleTrainer();
               }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium font-sans cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all whitespace-nowrap ${
                 activeDashboardSection === sec.id
-                  ? 'bg-emerald-600 text-white shadow shadow-emerald-600/20'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               {sec.label}
@@ -348,6 +424,102 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
 
       <AnimatePresence mode="wait">
         
+        {/* REPERTOIRE GUARD ZONE */}
+        {activeDashboardSection === 'repertoire' && (
+          <motion.div
+            key="repertoire"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="grid lg:grid-cols-12 gap-8"
+          >
+            {/* Add song form left */}
+            <div className="lg:col-span-4 glass-panel p-6 rounded-3xl border-slate-200 space-y-6 shadow-sm">
+              <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide flex items-center gap-2 uppercase">
+                <BookOpen className="w-4 h-4 text-blue-600" /> REPERTOIRE INTAKE
+              </h3>
+              <form onSubmit={handleAddSong} className="space-y-4">
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">SONG TITLE</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Clair de Lune, Master of Puppets..."
+                    value={newSongTitle}
+                    onChange={(e) => setNewSongTitle(e.target.value)}
+                    className="w-full premium-input font-sans text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ARTIST / COMPOSER</label>
+                  <input
+                    type="text"
+                    placeholder="Debussy, Metallica..."
+                    value={newSongArtist}
+                    onChange={(e) => setNewSongArtist(e.target.value)}
+                    className="w-full premium-input font-sans text-xs mt-1"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-sm shadow-blue-500/20"
+                >
+                  Add to Mastered Library
+                </button>
+              </form>
+              <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                <p className="text-[10px] text-blue-600 font-bold leading-relaxed italic">
+                  "The Repertoire Guard uses a music-specific Spaced Repetition System. Learned pieces decay over time if not reviewed."
+                </p>
+              </div>
+            </div>
+
+            {/* Repertoire List Right */}
+            <div className="lg:col-span-8 space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-display font-bold text-slate-900 uppercase">INTELLIGENT MAINTENANCE SCHEDULE</h3>
+                <span className="text-[10px] text-slate-400 font-bold font-mono">Total Pieces: {userProgress.repertoire.length}</span>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto pr-2 customized-scrollbar">
+                {userProgress.repertoire.length > 0 ? userProgress.repertoire.map((song) => (
+                  <div key={song.id} className="glass-panel p-4 rounded-2xl border-slate-100 bg-white flex flex-col justify-between space-y-4 group shadow-sm hover:border-blue-200 transition-all">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">{song.title}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold">{song.artist}</p>
+                      </div>
+                      <div className={`text-right space-y-0.5`}>
+                        <span className={`text-lg font-mono font-bold ${getRetentionColor(song.retentionScore)}`}>
+                          {song.retentionScore}%
+                        </span>
+                        <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest">Retention</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-50 flex justify-between items-center">
+                      <div className="text-[9px] text-slate-400 font-bold font-mono">
+                        Last Reviewed: {song.lastReviewedDate}
+                      </div>
+                      <button
+                        onClick={() => handleReviewSong(song.id)}
+                        className="px-3 py-1 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-100 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                      >
+                        Run Review
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="col-span-2 py-20 text-center space-y-3">
+                    <BookOpen className="w-10 h-10 text-slate-200 mx-auto" />
+                    <p className="text-xs text-slate-400 font-bold">Your mastered library is empty. Add songs to start guarding them against decay.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* TIMER ZONE */}
         {activeDashboardSection === 'timer' && (
           <motion.div
@@ -358,34 +530,34 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
             className="grid lg:grid-cols-12 gap-8"
           >
             {/* Task list left */}
-            <div className="lg:col-span-4 glass-panel p-6 rounded-2xl border-slate-800 space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-900 pb-3">
-                <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide flex items-center gap-2">
-                  <ListTodo className="w-4 h-4 text-emerald-400" /> WORKOUT SCHEDULES
+            <div className="lg:col-span-4 glass-panel p-6 rounded-3xl border-slate-200 space-y-6 shadow-sm">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide flex items-center gap-2 uppercase">
+                  <ListTodo className="w-4 h-4 text-blue-600" /> WORKOUT SCHEDULES
                 </h3>
               </div>
 
               {/* Added blocks queue */}
-              <div className="space-y-2.5 max-h-[190px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-[190px] overflow-y-auto pr-1 customized-scrollbar">
                 {blocks.map((block) => (
                   <div
                     key={block.id}
                     onClick={() => setSelectedBlock(block)}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                       selectedBlock?.id === block.id
-                        ? 'bg-emerald-950/20 border-emerald-500/35'
-                        : 'bg-slate-900/30 border-slate-900 hover:border-slate-800'
+                        ? 'bg-blue-50 border-blue-200 shadow-sm'
+                        : 'bg-white border-slate-100 hover:border-slate-200'
                     }`}
                   >
                     <div>
-                      <h4 className="font-sans font-semibold text-xs text-slate-200">{block.name}</h4>
-                      <span className="text-[9px] text-emerald-400 font-mono tracking-wider uppercase mt-1 inline-block">{block.category}</span>
+                      <h4 className="font-sans font-bold text-xs text-slate-900">{block.name}</h4>
+                      <span className="text-[9px] text-blue-600 font-bold font-mono tracking-wider uppercase mt-1 inline-block bg-blue-50 px-1.5 py-0.5 rounded-md">{block.category}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 font-mono">{block.durationMinutes}m</span>
+                      <span className="text-xs text-slate-500 font-bold font-mono">{block.durationMinutes}m</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteBlock(block.id); }}
-                        className="text-slate-500 hover:text-red-400 p-1 cursor-pointer"
+                        className="text-slate-300 hover:text-red-500 p-1 cursor-pointer transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -395,9 +567,9 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
               </div>
 
               {/* Form to add quick blocks */}
-              <form onSubmit={handleAddBlock} className="border-t border-slate-900 pt-5 space-y-4">
+              <form onSubmit={handleAddBlock} className="border-t border-slate-100 pt-5 space-y-4">
                 <div>
-                  <label className="text-[10px] text-slate-400">SESSION BLOCK NAME</label>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">SESSION BLOCK NAME</label>
                   <input
                     type="text"
                     required
@@ -410,22 +582,22 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="text-[10px] text-slate-400">DURATION (MINUTES)</label>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">DURATION (MIN)</label>
                     <input
                       type="number"
                       min="1"
                       max="120"
                       value={newBlockDuration}
                       onChange={(e) => setNewBlockDuration(Number(e.target.value) || 10)}
-                      className="w-full premium-input font-mono mt-1"
+                      className="w-full premium-input font-mono font-bold mt-1"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400">CATEGORY</label>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CATEGORY</label>
                     <select
                       value={newBlockCategory}
                       onChange={(e: any) => setNewBlockCategory(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg text-xs p-2 text-slate-300 mt-1 h-9"
+                      className="w-full bg-white border border-slate-200 rounded-xl text-xs p-2 text-slate-700 mt-1 h-10 font-bold focus:border-blue-500 outline-none shadow-sm"
                     >
                       <option value="scales">Scales</option>
                       <option value="exercises">Exercises</option>
@@ -437,7 +609,7 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
 
                 <button
                   type="submit"
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-xs font-semibold text-slate-300 hover:text-white border border-slate-850 rounded-lg transition-colors cursor-pointer"
+                  className="w-full py-3 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 border border-slate-200 rounded-xl transition-all cursor-pointer shadow-sm"
                 >
                   Quick Enqueue Task
                 </button>
@@ -445,53 +617,62 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
             </div>
 
             {/* Glowing clock right */}
-            <div className="lg:col-span-8 flex flex-col justify-center items-center space-y-6 min-h-[350px]">
+            <div className="lg:col-span-8 flex flex-col justify-center items-center space-y-8 min-h-[350px]">
               {selectedBlock ? (
-                <div className="text-center space-y-6">
+                <div className="text-center space-y-8">
                   
                   {/* Digital glowing readout */}
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-400 tracking-wider font-mono">ACTIVE BLOCK COUNTDOWN</span>
-                    <h2 className="text-3xl md:text-4xl text-emerald-400 font-display font-medium">{selectedBlock.name}</h2>
+                    <span className="text-[10px] text-slate-400 tracking-widest font-bold font-mono uppercase">ACTIVE BLOCK COUNTDOWN</span>
+                    <h2 className="text-4xl md:text-5xl text-slate-900 font-display font-bold">{selectedBlock.name}</h2>
                   </div>
 
                   {/* Glassmorphic counting ring */}
-                  <div className="relative w-56 h-56 rounded-full border-4 border-emerald-950/40 flex items-center justify-center shadow-2xl">
-                    <div className="text-center">
-                      <span className="text-5xl font-mono font-bold text-white tracking-tight">{formatTimerString(timeLeft)}</span>
-                      <p className="text-[10px] text-slate-500 font-mono mt-1 text-center">MM:SS LEFT</p>
+                  <div className="relative w-64 h-64 md:w-72 md:h-72 rounded-full border-8 border-white bg-white flex items-center justify-center shadow-2xl shadow-blue-500/5">
+                    {/* Background track circle */}
+                    <div className="absolute inset-0 rounded-full border-8 border-slate-50" />
+                    
+                    <div className="text-center relative z-10">
+                      <span className="text-6xl md:text-7xl font-mono font-bold text-slate-900 tracking-tighter">{formatTimerString(timeLeft)}</span>
+                      <p className="text-[10px] text-slate-400 font-bold font-mono mt-1 tracking-widest uppercase">MINUTES REMAINING</p>
                     </div>
                   </div>
 
                   {/* Actions buttons */}
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex gap-4 justify-center">
                     <button
                       onClick={handleStartTimer}
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/15"
+                      className={`px-8 py-3 rounded-2xl text-sm font-bold cursor-pointer flex items-center gap-2 transition-all shadow-lg ${
+                        isTimerRunning 
+                          ? 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200' 
+                          : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'
+                      }`}
                     >
                       {isTimerRunning ? (
                         <>
-                          <Pause className="w-3.5 h-3.5" /> Pause Clock
+                          <Pause className="w-4 h-4" /> Pause Session
                         </>
                       ) : (
                         <>
-                          <Play className="w-3.5 h-3.5 fill-white" /> Start Countdown
+                          <Play className="w-4 h-4 fill-white" /> Start Practice
                         </>
                       )}
                     </button>
 
                     <button
                       onClick={handleResetTimer}
-                      className="p-2.5 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white rounded-lg border border-slate-850 cursor-pointer"
+                      className="p-3 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl border border-slate-200 cursor-pointer shadow-sm transition-all"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <RotateCcw className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="text-center space-y-3">
-                  <Clock className="w-12 h-12 text-slate-600 mx-auto" />
-                  <p className="text-xs text-slate-400">Enqueue blocks in schedule planner to begin countdown sequences.</p>
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+                    <Clock className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Enqueue blocks in schedule planner</p>
                 </div>
               )}
             </div>
@@ -505,16 +686,16 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
-            className="max-w-xl mx-auto glass-panel p-8 rounded-2xl border-slate-800 space-y-6"
+            className="max-w-xl mx-auto glass-panel p-10 rounded-3xl border-slate-200 space-y-8 shadow-sm"
           >
-            <div className="text-center space-y-1.5">
-              <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide">AUTO-STEP TEMPO TRAINING</h3>
-              <p className="text-xs text-slate-400">Allows hands-free speed build-ups, increasing metronome pace gradually.</p>
+            <div className="text-center space-y-2">
+              <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide uppercase">AUTO-STEP TEMPO TRAINING</h3>
+              <p className="text-xs text-slate-500 font-medium">Allows hands-free speed build-ups, increasing metronome pace gradually.</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 border-y border-slate-900 py-5">
+            <div className="grid grid-cols-3 gap-6 border-y border-slate-100 py-8">
               <div>
-                <label className="text-[9px] text-slate-500 font-mono">START BPM</label>
+                <label className="text-[10px] text-slate-400 font-bold font-mono tracking-widest uppercase">START BPM</label>
                 <input
                   type="number"
                   min="20"
@@ -522,12 +703,12 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
                   value={startBpm}
                   onChange={(e) => setStartBpm(Number(e.target.value) || 80)}
                   disabled={isTrainerPlaying}
-                  className="w-full premium-input mt-1 text-sm font-mono"
+                  className="w-full premium-input mt-2 text-sm font-bold font-mono text-blue-600"
                 />
               </div>
 
               <div>
-                <label className="text-[9px] text-slate-500 font-mono">BPM INCREMENTS</label>
+                <label className="text-[10px] text-slate-400 font-bold font-mono tracking-widest uppercase">BPM ADD</label>
                 <input
                   type="number"
                   min="1"
@@ -535,12 +716,12 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
                   value={incAmount}
                   onChange={(e) => setIncAmount(Number(e.target.value) || 4)}
                   disabled={isTrainerPlaying}
-                  className="w-full premium-input mt-1 text-sm font-mono"
+                  className="w-full premium-input mt-2 text-sm font-bold font-mono text-blue-600"
                 />
               </div>
 
               <div>
-                <label className="text-[9px] text-slate-500 font-mono">EACH (SECONDS)</label>
+                <label className="text-[10px] text-slate-400 font-bold font-mono tracking-widest uppercase">EVERY (S)</label>
                 <input
                   type="number"
                   min="3"
@@ -548,37 +729,37 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
                   value={incTimerSeconds}
                   onChange={(e) => setIncTimerSeconds(Number(e.target.value) || 15)}
                   disabled={isTrainerPlaying}
-                  className="w-full premium-input mt-1 text-sm font-mono"
+                  className="w-full premium-input mt-2 text-sm font-bold font-mono text-blue-600"
                 />
               </div>
             </div>
 
             {/* Large active trainer panel */}
-            <div className="h-32 bg-slate-950/60 rounded-xl relative border border-slate-900 flex flex-col justify-center items-center">
+            <div className="h-40 bg-slate-50 rounded-3xl relative border border-slate-100 flex flex-col justify-center items-center shadow-inner overflow-hidden">
               {isTrainerPlaying ? (
-                <div className="text-center space-y-1">
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase animate-pulse">TRAINING MOTOR SPEED...</span>
-                  <div className="text-4xl font-mono font-bold text-white mt-1">
-                    {trainerActiveBpm} <span className="text-xs text-slate-400">BPM</span>
+                <div className="text-center space-y-1 relative z-10">
+                  <span className="text-[10px] font-bold font-mono text-blue-600 uppercase animate-pulse tracking-widest">TRAINING MOTOR SPEED...</span>
+                  <div className="text-5xl font-mono font-bold text-slate-900 mt-1">
+                    {trainerActiveBpm} <span className="text-sm text-slate-400 font-bold uppercase">BPM</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-mono">Ramping in {incTimerSeconds - (trainerElapsedSeconds % incTimerSeconds)}s</p>
+                  <p className="text-[10px] text-slate-400 font-bold font-mono">Ramping in {incTimerSeconds - (trainerElapsedSeconds % incTimerSeconds)}s</p>
                 </div>
               ) : (
-                <span className="text-xs text-slate-500 font-mono">TRAINER INACTIVE</span>
+                <span className="text-xs text-slate-300 font-bold font-mono uppercase tracking-widest">TRAINER INACTIVE</span>
               )}
             </div>
 
             <button
               onClick={handleToggleTrainer}
-              className={`w-full py-3.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer ${
+              className={`w-full py-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all ${
                 isTrainerPlaying
-                  ? 'bg-slate-800 text-red-400 hover:bg-slate-755'
-                  : 'bg-emerald-600 hover:bg-emerald-550 text-white'
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-red-500/20'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
               }`}
             >
               {isTrainerPlaying ? (
                 <>
-                  <Pause className="w-4 h-4" /> Hard Stop Trainer
+                  <Square className="w-4 h-4 fill-white" /> Hard Stop Trainer
                 </>
               ) : (
                 <>
@@ -599,62 +780,64 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
             className="grid lg:grid-cols-12 gap-8"
           >
             {/* Quick entry form */}
-            <form onSubmit={handleSaveJournalEntry} className="lg:col-span-5 glass-panel p-6 rounded-2xl border-slate-800 space-y-4">
-              <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide">WRITE JOURNAL ENTRY</h3>
+            <form onSubmit={handleSaveJournalEntry} className="lg:col-span-5 glass-panel p-8 rounded-3xl border-slate-200 space-y-6 shadow-sm">
+              <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide uppercase">WRITE JOURNAL ENTRY</h3>
               
-              <div>
-                <label className="text-[10px] text-slate-400">PRACTICED SEGMENT / OBSERVATION</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Mendelssohn Violin Concerto"
-                  value={jotNote}
-                  onChange={(e) => setJotNote(e.target.value)}
-                  className="w-full premium-input mt-1 text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="space-y-4">
                 <div>
-                  <label className="text-[10px] text-slate-400">MAX BPM ACHIEVED</label>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PRACTICED SEGMENT</label>
                   <input
-                    type="number"
-                    min="20"
-                    max="400"
-                    value={jotBpm}
-                    onChange={(e) => setJotBpm(Number(e.target.value) || 120)}
-                    className="w-full premium-input font-mono mt-1"
+                    type="text"
+                    required
+                    placeholder="e.g. Mendelssohn Violin Concerto"
+                    value={jotNote}
+                    onChange={(e) => setJotNote(e.target.value)}
+                    className="w-full premium-input mt-1.5 text-xs font-medium"
                   />
                 </div>
-                <div>
-                  <label className="text-[10px] text-slate-400">CATEGORY</label>
-                  <select
-                    value={jotCategory}
-                    onChange={(e: any) => setJotCategory(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg text-xs p-2 text-slate-300 mt-1 h-9"
-                  >
-                    <option value="scales">Scales</option>
-                    <option value="exercises">Exercises</option>
-                    <option value="songs">Songs</option>
-                    <option value="technique">Technique</option>
-                  </select>
-                </div>
-              </div>
 
-              <div>
-                <label className="text-[10px] text-slate-400">OBSERVATIONS & STRUGGLE AREAS</label>
-                <textarea
-                  rows={3}
-                  placeholder="Need to relax my pinky during shifts. Metronome sync flawless."
-                  value={observations}
-                  onChange={(e) => setObservations(e.target.value)}
-                  className="w-full premium-input mt-1 text-xs resize-none"
-                />
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">MAX BPM</label>
+                    <input
+                      type="number"
+                      min="20"
+                      max="400"
+                      value={jotBpm}
+                      onChange={(e) => setJotBpm(Number(e.target.value) || 120)}
+                      className="w-full premium-input font-mono font-bold mt-1.5 text-blue-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">CATEGORY</label>
+                    <select
+                      value={jotCategory}
+                      onChange={(e: any) => setJotCategory(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl text-xs p-2 text-slate-700 mt-1.5 h-10 font-bold focus:border-blue-500 outline-none shadow-sm"
+                    >
+                      <option value="scales">Scales</option>
+                      <option value="exercises">Exercises</option>
+                      <option value="songs">Songs</option>
+                      <option value="technique">Technique</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">OBSERVATIONS</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Need to relax my pinky during shifts. Metronome sync flawless."
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                    className="w-full premium-input mt-1.5 text-xs resize-none font-medium leading-relaxed"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-550 text-xs font-semibold text-white cursor-pointer transition-colors"
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold text-white cursor-pointer shadow-lg shadow-blue-500/20 transition-all"
               >
                 Log Session & Unlock XP
               </button>
@@ -662,29 +845,29 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
 
             {/* List entries */}
             <div className="lg:col-span-7 space-y-4">
-              <h3 className="text-xs font-display font-medium text-slate-300">HISTORIC JOURNAL BOOK</h3>
+              <h3 className="text-xs font-display font-bold text-slate-900 uppercase">HISTORIC JOURNAL BOOK</h3>
               
-              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 customized-scrollbar">
                 {journal.map((j) => (
-                  <div key={j.id} className="p-4 rounded-xl border border-slate-900 bg-slate-900/30 space-y-2 relative group">
+                  <div key={j.id} className="p-5 rounded-2xl border border-slate-100 bg-white space-y-3 relative group shadow-sm hover:border-blue-200 transition-all">
                     <button
                       onClick={() => handleDeleteJournal(j.id)}
-                      className="absolute top-3 right-3 text-slate-600 hover:text-red-400 cursor-pointer p-1"
+                      className="absolute top-4 right-4 text-slate-200 hover:text-red-500 cursor-pointer p-1 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] bg-slate-800 text-slate-400 font-mono tracking-wider font-semibold px-2 py-0.5 rounded uppercase">{j.category}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{j.date}</span>
+                      <span className="text-[10px] bg-blue-50 text-blue-600 font-bold font-mono tracking-wider px-2 py-0.5 rounded-md uppercase">{j.category}</span>
+                      <span className="text-[10px] text-slate-400 font-bold font-mono">{j.date}</span>
                     </div>
 
-                    <h4 className="font-semibold text-xs text-slate-200 pr-8">{j.sessionNotes}</h4>
-                    <p className="text-xs text-slate-400 leading-relaxed font-sans">{j.observations}</p>
+                    <h4 className="font-bold text-sm text-slate-900 pr-8">{j.sessionNotes}</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium">{j.observations}</p>
 
                     {j.bpmReached > 0 && (
-                      <div className="font-mono text-[9px] text-emerald-400 font-bold mt-1">
-                        MAX TEMPO: {j.bpmReached} BPM
+                      <div className="font-mono text-[10px] text-blue-600 font-bold mt-2 bg-blue-50/50 px-2 py-1 rounded-lg inline-block uppercase tracking-wider">
+                        Peak Tempo: {j.bpmReached} BPM
                       </div>
                     )}
                   </div>
@@ -704,61 +887,90 @@ export default function PracticeHubTool({ onGainXp, onLogCompletedBlock }: Pract
             className="grid lg:grid-cols-12 gap-8"
           >
             {/* Recharts graph left */}
-            <div className="lg:col-span-8 glass-panel p-6 rounded-2xl border-slate-800 space-y-4">
+            <div className="lg:col-span-8 glass-panel p-8 rounded-3xl border-slate-200 space-y-6 shadow-sm">
               <div>
-                <h3 className="text-xs font-display font-medium text-slate-200">TRAINING CONSISTENCY TIMELINE</h3>
-                <p className="text-[10px] text-slate-500">Practice duration (Minutes) mapped dynamically across the standard week.</p>
+                <h3 className="text-xs font-display font-bold text-slate-900 uppercase">TRAINING CONSISTENCY TIMELINE</h3>
+                <p className="text-[10px] text-slate-500 font-medium mt-1">Practice duration (Minutes) mapped dynamically across the standard week.</p>
               </div>
 
-              <div className="h-64 w-full">
+              <div className="h-72 w-full pt-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorMinutes" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#007AFF" stopOpacity={0.15}/>
+                        <stop offset="95%" stopColor="#007AFF" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="day" stroke="#64748b" fontSize={10} fontClassName="font-mono" />
-                    <YAxis stroke="#64748b" fontSize={10} fontClassName="font-mono" />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff', fontSize: 11 }} />
-                    <Area type="monotone" dataKey="minutes" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorMinutes)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="day" stroke="#94a3b8" fontSize={10} fontClassName="font-mono font-bold" axisLine={false} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} fontClassName="font-mono font-bold" axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: 11, fontWeight: 'bold', color: '#1D1D1F' }} />
+                    <Area type="monotone" dataKey="minutes" stroke="#007AFF" strokeWidth={3} fillOpacity={1} fill="url(#colorMinutes)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Legend right */}
-            <div className="lg:col-span-4 glass-panel p-6 rounded-2xl border-slate-800 space-y-5 flex flex-col justify-between">
-              <div className="space-y-4">
-                <h3 className="font-display font-medium text-slate-200 text-sm tracking-wide flex items-center gap-2">
-                  <Award className="w-4 h-4 text-emerald-400" /> MILESTONE REWARDS
+            <div className="lg:col-span-4 glass-panel p-8 rounded-3xl border-slate-200 space-y-8 flex flex-col justify-between shadow-sm">
+              <div className="space-y-6">
+                <h3 className="font-display font-bold text-slate-900 text-sm tracking-wide flex items-center gap-2 uppercase">
+                  <Award className="w-4 h-4 text-orange-500" /> MILESTONE REWARDS
                 </h3>
 
-                <div className="space-y-3.5">
-                  <div className="flex gap-3 text-xs">
-                    <div className="w-8.5 h-8.5 rounded bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-mono font-bold">142</div>
+                <div className="space-y-5">
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-mono font-bold text-lg shadow-inner">142</div>
                     <div>
-                      <h4 className="font-semibold text-slate-200">Max BPM Achievements</h4>
-                      <p className="text-[10px] text-slate-400">Peak pace registered on scale work logs.</p>
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Max BPM Achieved</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Peak pace registered on scale work logs.</p>
                     </div>
                   </div>
 
-                  <div className="flex gap-3 text-xs">
-                    <div className="w-8.5 h-8.5 rounded bg-purple-500/10 text-purple-400 flex items-center justify-center font-mono font-bold">2.5h</div>
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-mono font-bold text-lg shadow-inner">2.5h</div>
                     <div>
-                      <h4 className="font-semibold text-slate-200">Total Hours Practice</h4>
-                      <p className="text-[10px] text-slate-400">Summary accrued across blocks.</p>
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-tight">Total Hours practice</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Summary accrued across blocks.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-850">
-                <p className="text-[10px] text-slate-400 leading-normal">
-                  Musicians logging 30m+ daily see average rhythm consistency gains of up to 18% in the first fortnight. Keep practicing!
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner">
+                <p className="text-[10px] text-slate-500 font-bold leading-normal italic">
+                  "Musicians logging 30m+ daily see average rhythm consistency gains of up to 18% in the first fortnight. Keep practicing!"
                 </p>
+              </div>
+
+              {/* AI COACHING WIDGET */}
+              <div className="pt-6 border-t border-slate-100 space-y-4">
+                <button
+                  onClick={handleGetAiInsights}
+                  disabled={isAiLoading}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 transition-all cursor-pointer"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
+                  {isAiLoading ? 'Analyzing Performance...' : 'Get AI Practice Insights'}
+                </button>
+
+                {aiInsights.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl space-y-3 shadow-sm"
+                  >
+                    <span className="text-[9px] text-blue-700 font-bold font-mono uppercase tracking-widest border-b border-blue-100 pb-1 block">Coach Recommendations:</span>
+                    <ul className="space-y-2">
+                      {aiInsights.map((insight, i) => (
+                        <li key={i} className="text-[10px] text-slate-700 leading-relaxed flex gap-2 font-medium">
+                          <span className="text-blue-600 font-bold">•</span> {insight}
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                )}
               </div>
             </div>
 
