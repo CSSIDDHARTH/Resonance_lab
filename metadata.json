@@ -1,0 +1,6 @@
+{
+  "name": "Resonance Lab",
+  "description": "Premium browser-based music practice platform with advanced metronomes, rhythm training, theory tools, and ear training.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
